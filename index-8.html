@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#15171F" />
+<link rel="manifest" href="manifest.json" />
+<title>Discipline Tracker</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --ink-900:#15171F; --ink-800:#1E212C; --ink-700:#2A2E3B;
+    --paper-100:#F4F5F7; --paper-000:#FFFFFF;
+    --gold:#D9A441; --gold-ink:#3A2B0C;
+    --sage:#4F9D8C; --sage-soft:rgba(79,157,140,.16);
+    --clay:#C0574B; --clay-soft:rgba(192,87,75,.14);
+    --text-onlight:#1B1D24; --text-onlight-dim:#5B5F6B;
+    --text-ondark:#ECECF0; --text-ondark-dim:#9A9DAA;
+    --radius-lg:20px; --radius-md:14px; --radius-sm:10px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    --bg: var(--ink-900); --surface: var(--ink-800);
+    --text: var(--text-ondark); --text-dim: var(--text-ondark-dim);
+    --border: rgba(255,255,255,.08); --shadow: 0 1px 0 rgba(255,255,255,.03), 0 10px 24px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg: var(--paper-100); --surface: var(--paper-000);
+      --text: var(--text-onlight); --text-dim: var(--text-onlight-dim);
+      --border: #E4E5EA; --shadow: 0 1px 2px rgba(20,20,30,.04), 0 8px 20px rgba(20,20,30,.06);
+    }
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  [hidden]{ display:none !important; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    min-height:100vh;
+  }
+  button, input, textarea{ font-family:inherit; color:inherit; }
+  button{ touch-action:manipulation; }
+  button{ cursor:pointer; }
+  .app-shell{ max-width:480px; margin:0 auto; padding: calc(18px + var(--safe-top)) 20px calc(150px + var(--safe-bottom)); }
+
+  .topbar-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:22px; }
+  .eyebrow{ font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim); margin:0 0 2px; }
+  .title{ font-size:28px; font-weight:700; margin:0; letter-spacing:-0.01em; }
+  .text-btn{ background:none; border:1px solid var(--border); color:var(--text); font-size:14px; font-weight:600; padding:10px 14px; border-radius:999px; min-height:40px; }
+  .text-btn:active{ background:var(--surface); }
+  .section-title{ font-size:15px; font-weight:700; margin:26px 0 12px; }
+
+  /* Score hero */
+  .score-hero{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:22px; display:flex; align-items:center; gap:18px; margin-bottom:22px; }
+  .score-ring-wrap{ position:relative; width:104px; height:104px; flex:none; }
+  .score-ring{ width:100%; height:100%; transform:rotate(-90deg); }
+  .score-ring-track{ fill:none; stroke:var(--border); stroke-width:8; }
+  .score-ring-fill{ fill:none; stroke:var(--gold); stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset .5s ease; }
+  .score-ring-label{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .score-pct{ font-size:24px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+  .score-sub{ font-size:11px; color:var(--text-dim); margin-top:1px; }
+  .score-body{ flex:1; min-width:0; }
+  .score-completed{ font-size:15px; margin:0 0 4px; }
+  .score-completed strong{ font-variant-numeric:tabular-nums; }
+  .score-formula{ font-size:12px; color:var(--text-dim); margin:0; }
+
+  /* Habit list (Today) */
+  .habit-list{ display:flex; flex-direction:column; gap:12px; }
+  .habit-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:16px; }
+  .habit-card-main{ display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
+  .habit-icon{ font-size:20px; line-height:1; width:32px; height:32px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .habit-info{ flex:1; min-width:0; }
+  .habit-name{ font-size:16px; font-weight:600; margin:0 0 2px; overflow-wrap:break-word; }
+  .habit-desc{ font-size:13px; color:var(--text-dim); margin:0 0 8px; overflow-wrap:break-word; }
+  .habit-thread{ display:flex; gap:5px; margin-top:6px; }
+  .thread-dot{ width:9px; height:9px; border-radius:3px; background:var(--border); }
+  .thread-dot--done{ background:var(--sage); }
+  .thread-dot--missed{ background:var(--clay); opacity:.55; }
+  .thread-dot--empty{ background:var(--border); }
+  .thread-dot--void{ background:transparent; }
+  .habit-more{ background:none; border:none; font-size:20px; color:var(--text-dim); padding:6px 8px; margin:-6px -8px 0 0; flex:none; border-radius:8px; }
+  .habit-more:active{ background:var(--border); }
+  .habit-actions{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .btn-done, .btn-notdone{ min-height:48px; border-radius:var(--radius-md); border:1px solid var(--border); background:transparent; font-size:14px; font-weight:600; }
+  .btn-done.is-active{ background:var(--sage-soft); border-color:var(--sage); color:var(--sage); }
+  .btn-notdone.is-active{ background:var(--clay-soft); border-color:var(--clay); color:var(--clay); }
+
+  /* Empty states */
+  .empty-state, .no-active-state{ text-align:center; padding:40px 12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); }
+  .empty-illustration{ font-size:32px; margin-bottom:10px; color:var(--gold); }
+  .empty-state h2{ font-size:19px; margin:0 0 8px; }
+  .empty-state p, .no-active-state p{ font-size:14px; color:var(--text-dim); margin:0 0 18px; max-width:32ch; margin-left:auto; margin-right:auto; }
+  .suggestion-row{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:18px; }
+  .chip{ background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:8px 14px; font-size:13px; color:var(--text); }
+
+  /* Buttons (shared) */
+  .btn-primary{ background:var(--gold); color:var(--gold-ink); border:none; min-height:50px; padding:0 20px; border-radius:var(--radius-md); font-size:15px; font-weight:700; }
+  .btn-ghost{ background:none; border:1px solid var(--border); color:var(--text); min-height:46px; padding:0 16px; border-radius:var(--radius-md); font-size:14px; font-weight:600; }
+  .btn-ghost-danger{ background:none; border:1px solid var(--clay); color:var(--clay); min-height:46px; padding:0 16px; border-radius:var(--radius-md); font-size:14px; font-weight:600; }
+
+  /* FAB */
+  .fab{ position:fixed; right:24px; bottom:calc(76px + var(--safe-bottom)); width:58px; height:58px; border-radius:50%; background:var(--gold); color:var(--gold-ink); border:none; font-size:28px; font-weight:400; box-shadow:0 10px 24px rgba(0,0,0,.25); z-index:5; }
+  .fab:active{ transform:scale(.94); }
+
+  /* Bottom nav */
+  .bottom-nav{ position:fixed; left:0; right:0; bottom:0; background:var(--surface); border-top:1px solid var(--border); display:flex; padding:6px 4px calc(6px + var(--safe-bottom)); z-index:6; }
+  .nav-btn{ flex:1; background:none; border:none; padding:8px 4px 6px; display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--text-dim); font-size:11px; font-weight:600; border-radius:12px; }
+  .nav-btn.is-active{ color:var(--gold); }
+  .nav-dot{ width:5px; height:5px; border-radius:50%; background:currentColor; opacity:0; }
+  .nav-btn.is-active .nav-dot{ opacity:1; }
+
+  /* Manage / Habits screen */
+  .manage-count{ font-size:13px; color:var(--text-dim); margin:-14px 0 18px; }
+  .manage-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:10px; }
+  .manage-row-main{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .manage-icon{ font-size:17px; flex:none; }
+  .manage-name{ font-size:15px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .manage-row-actions{ display:flex; align-items:center; gap:8px; flex:none; }
+  .pill{ font-size:12px; font-weight:700; border-radius:999px; padding:7px 12px; border:1px solid; min-height:0; }
+  .pill--active{ background:var(--sage-soft); border-color:var(--sage); color:var(--sage); }
+  .pill--inactive{ background:var(--bg); border-color:var(--border); color:var(--text-dim); }
+  .link-btn{ background:none; border:none; color:var(--gold); font-size:13px; font-weight:700; padding:8px 4px; }
+
+  /* Dashboard: streak row */
+  .stat-row{ display:flex; gap:12px; margin-bottom:22px; }
+  .stat-card{ flex:1; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:16px; text-align:center; }
+  .stat-value{ font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .stat-label{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+
+  /* Dashboard: per-habit consistency */
+  .habit-stat-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px; margin-bottom:10px; }
+  .habit-stat-name{ font-size:15px; font-weight:600; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  .habit-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .habit-stat-item .v{ font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .habit-stat-item .l{ font-size:11px; color:var(--text-dim); }
+  .muted-note{ font-size:13px; color:var(--text-dim); background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px; }
+
+  /* Dashboard: weekly bar chart */
+  .week-chart{ display:flex; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 12px 12px; box-shadow:var(--shadow); }
+  .week-bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; }
+  .week-bar-track{ width:100%; max-width:22px; height:90px; background:var(--bg); border-radius:6px; display:flex; align-items:flex-end; overflow:hidden; }
+  .week-bar-fill{ width:100%; background:var(--sage); border-radius:6px 6px 0 0; transition:height .4s ease; min-height:2px; }
+  .week-bar-label{ font-size:11px; color:var(--text-dim); margin-top:6px; }
+  .week-bar-pct{ font-size:10px; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+
+  /* Dashboard: monthly calendar */
+  .cal-weekday-row{ display:grid; grid-template-columns:repeat(7,1fr); text-align:center; font-size:11px; color:var(--text-dim); margin-bottom:6px; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .cal-cell{ aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-variant-numeric:tabular-nums; border:1px solid var(--border); color:var(--text-dim); }
+  .cal-cell--blank{ border:none; }
+  .cal-cell--future{ border-style:dashed; opacity:.4; }
+  .cal-cell--void{ opacity:.4; }
+  .cal-cell--l0{ background:var(--bg); }
+  .cal-cell--l1{ background:rgba(79,157,140,.22); border-color:transparent; color:var(--text); }
+  .cal-cell--l2{ background:rgba(79,157,140,.45); border-color:transparent; color:var(--text); }
+  .cal-cell--l3{ background:rgba(79,157,140,.7); border-color:transparent; color:var(--text-ondark); }
+  .cal-cell--l4{ background:var(--sage); border-color:transparent; color:var(--text-ondark); font-weight:700; }
+  .cal-cell--today{ outline:2px solid var(--gold); outline-offset:1px; }
+
+  /* Dashboard: score trio */
+  .score-trio{ display:flex; gap:10px; margin-bottom:16px; }
+  .score-card{ flex:1; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:14px; text-align:center; }
+  .score-card .v{ font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .score-card .l{ font-size:11px; color:var(--text-dim); margin:2px 0 8px; }
+  .score-card details{ text-align:left; }
+  .score-card summary{ font-size:11px; color:var(--gold); cursor:pointer; list-style:none; }
+  .score-card summary::-webkit-details-marker{ display:none; }
+  .score-card details p{ font-size:11px; color:var(--text-dim); margin:6px 0 0; }
+
+  /* Dashboard: trend */
+  .trend-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:16px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .trend-label{ font-size:16px; font-weight:700; }
+  .trend-diff{ font-size:13px; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+  .trend-note{ font-size:12px; color:var(--text-dim); margin:8px 0 0; }
+
+  /* Dashboard: achievements */
+  .achv-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .achv-badge{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 8px; text-align:center; opacity:.35; }
+  .achv-badge.unlocked{ opacity:1; border-color:var(--gold); background:rgba(217,164,65,.1); }
+  .achv-icon{ font-size:20px; margin-bottom:4px; }
+  .achv-label{ font-size:10.5px; font-weight:600; line-height:1.25; }
+
+  /* Dashboard: personal records */
+  .records-list{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:6px 16px; }
+  .record-row{ display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); font-size:14px; }
+  .record-row:last-child{ border-bottom:none; }
+  .record-row .v{ font-weight:700; font-variant-numeric:tabular-nums; }
+
+  /* Sheet */
+  .sheet-overlay{ position:fixed; inset:0; background:rgba(10,10,15,.5); display:flex; align-items:flex-end; z-index:10; }
+  .sheet{ width:100%; max-width:480px; margin:0 auto; background:var(--bg); border-radius:24px 24px 0 0; padding:22px 20px calc(22px + var(--safe-bottom)); max-height:88vh; overflow-y:auto; }
+  .sheet h2{ font-size:20px; margin:0 0 18px; }
+  .field{ display:block; margin-bottom:14px; }
+  .field-label{ display:block; font-size:13px; font-weight:600; color:var(--text-dim); margin-bottom:6px; }
+  .field input, .field textarea{ width:100%; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; font-size:16px; }
+  .field textarea{ resize:vertical; min-height:60px; }
+  .sheet-error{ background:var(--clay-soft); color:var(--clay); font-size:13px; font-weight:600; padding:10px 12px; border-radius:var(--radius-sm); margin:0 0 14px; }
+  .sheet-actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
+  .sheet-actions .btn-primary{ flex:1; min-width:120px; }
+  .sheet-secondary-row{ display:flex; gap:10px; margin-bottom:10px; }
+  .sheet-secondary-row .btn-ghost, .sheet-secondary-row .btn-ghost-danger{ flex:1; }
+
+  @media (prefers-reduced-motion:no-preference){
+    .habit-card{ animation: rise .3s ease both; }
+  }
+  @keyframes rise{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
+</style>
+</head>
+<body>
+<noscript>This app needs JavaScript enabled to work.</noscript>
+
+<div class="app-shell">
+
+  <!-- TODAY SCREEN -->
+  <main id="todayScreen">
+    <div class="topbar-row">
+      <div>
+        <p class="eyebrow" id="dateEyebrow"></p>
+        <h1 class="title">Today</h1>
+      </div>
+    </div>
+
+    <section class="score-hero" id="scoreHero" aria-live="polite"></section>
+
+    <div class="empty-state" id="emptyState" hidden>
+      <div class="empty-illustration">&#10022;</div>
+      <h2>Build your first routine</h2>
+      <p>Create a few daily habits and start tracking your consistency.</p>
+      <button class="btn-primary" id="emptyAddBtn">+ Add habit</button>
+      <div class="suggestion-row">
+        <button class="chip" data-suggest="Running 5 km">Running 5 km</button>
+        <button class="chip" data-suggest="No junk food">No junk food</button>
+        <button class="chip" data-suggest="Study 2 hours">Study 2 hours</button>
+        <button class="chip" data-suggest="Wake up early">Wake up early</button>
+      </div>
+    </div>
+
+    <div class="no-active-state" id="noActiveState" hidden>
+      <p>All your habits are currently disabled. Open the <strong>Habits</strong> tab below to turn one back on.</p>
+    </div>
+
+    <div class="habit-list" id="habitList"></div>
+  </main>
+
+  <!-- DASHBOARD SCREEN -->
+  <main id="dashboardScreen" hidden>
+    <div class="topbar-row">
+      <div>
+        <p class="eyebrow">Overview</p>
+        <h1 class="title">Dashboard</h1>
+      </div>
+    </div>
+
+    <div id="dashEmpty" class="empty-state" hidden>
+      <div class="empty-illustration">&#9652;</div>
+      <h2>Nothing to show yet</h2>
+      <p>Add a habit and mark a few days to see your dashboard come to life.</p>
+    </div>
+
+    <div id="dashContent" hidden>
+      <section class="score-hero" id="dashTodayScore"></section>
+
+      <section class="stat-row" id="streakRow"></section>
+
+      <h2 class="section-title">Your habits</h2>
+      <div id="habitConsistencyList"></div>
+
+      <h2 class="section-title">This week</h2>
+      <div class="week-chart" id="weekChart"></div>
+
+      <h2 class="section-title">This month</h2>
+      <div class="cal-weekday-row"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+      <div class="cal-grid" id="calGrid"></div>
+
+      <h2 class="section-title">Scores</h2>
+      <div class="score-trio" id="scoreTrio"></div>
+      <div class="trend-card" id="trendCard"></div>
+
+      <h2 class="section-title">Achievements</h2>
+      <div class="achv-grid" id="achvGrid"></div>
+
+      <h2 class="section-title">Personal records</h2>
+      <div class="records-list" id="recordsList"></div>
+    </div>
+  </main>
+
+  <!-- HABITS SCREEN -->
+  <main id="habitsScreen" hidden>
+    <div class="topbar-row">
+      <div>
+        <p class="eyebrow">Manage</p>
+        <h1 class="title">Your habits</h1>
+      </div>
+    </div>
+    <p class="manage-count" id="manageCount"></p>
+    <div id="manageList"></div>
+  </main>
+
+  <button class="fab" id="fabAddBtn" aria-label="Add habit">+</button>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn is-active" data-screen="today"><span>Today</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-screen="dashboard"><span>Dashboard</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-screen="habits"><span>Habits</span><span class="nav-dot"></span></button>
+</nav>
+
+<!-- ADD / EDIT SHEET -->
+<div class="sheet-overlay" id="sheetOverlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <h2 id="sheetTitle">Add habit</h2>
+    <p class="sheet-error" id="sheetError" hidden></p>
+
+    <div class="field">
+      <label class="field-label" for="habitNameInput">Habit name</label>
+      <input id="habitNameInput" maxlength="60" placeholder='e.g. &quot;Running 5 km&quot;' />
+    </div>
+    <div class="field">
+      <label class="field-label" for="habitIconInput">Icon (optional)</label>
+      <input id="habitIconInput" maxlength="8" placeholder="&#127939;" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="habitDescInput">Description / target (optional)</label>
+      <textarea id="habitDescInput" maxlength="120" placeholder="e.g. Before 7 AM, 5 days a week"></textarea>
+    </div>
+
+    <div class="sheet-secondary-row" id="editOnlyRow" hidden>
+      <button class="btn-ghost" id="toggleActiveBtn">Disable</button>
+      <button class="btn-ghost-danger" id="deleteHabitBtn">Delete</button>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn-ghost" id="cancelSheetBtn">Cancel</button>
+      <button class="btn-primary" id="saveHabitBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var MAX_ACTIVE = 10;
+  var KEYS = { habits:'dt_habits_v1', records:'dt_records_v1' };
+
+  // ---------- storage ----------
+  function loadHabits(){
+    try { var raw = localStorage.getItem(KEYS.habits); return raw ? JSON.parse(raw) : []; }
+    catch(e){ return []; }
+  }
+  function saveHabits(list){
+    try { localStorage.setItem(KEYS.habits, JSON.stringify(list)); }
+    catch(e){ alert('Could not save that habit. Your browser storage may be full or disabled.'); }
+  }
+  function loadRecords(){
+    try { var raw = localStorage.getItem(KEYS.records); return raw ? JSON.parse(raw) : {}; }
+    catch(e){ return {}; }
+  }
+  function saveRecords(rec){
+    try { localStorage.setItem(KEYS.records, JSON.stringify(rec)); }
+    catch(e){ alert('Could not save that entry. Your browser storage may be full or disabled.'); }
+  }
+
+  var habits = loadHabits();
+  var records = loadRecords();
+
+  // ---------- date helpers ----------
+  function getLocalDateString(d){
+    d = d || new Date();
+    var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + day;
+  }
+  function todayStr(){ return getLocalDateString(new Date()); }
+  function dateFromISO(iso){ return new Date(iso + 'T00:00:00'); }
+  function makeId(){ return 'h_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
+  function escapeHtml(str){
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+  function activeCount(){ return habits.filter(function(h){ return h.active; }).length; }
+  function earliestHabitDate(){
+    if (!habits.length) return null;
+    return habits.reduce(function(m,h){ return h.createdDate < m ? h.createdDate : m; }, habits[0].createdDate);
+  }
+
+  // ---------- record status ----------
+  function getRecordStatus(habitId, dateStr){
+    return (records[dateStr] && records[dateStr][habitId]) || 'unanswered';
+  }
+  function setRecordStatus(habitId, dateStr, status){
+    if (!records[dateStr]) records[dateStr] = {};
+    if (status === 'unanswered'){
+      delete records[dateStr][habitId];
+      if (Object.keys(records[dateStr]).length === 0) delete records[dateStr];
+    } else {
+      records[dateStr][habitId] = status;
+    }
+    saveRecords(records);
+  }
+  function computeDailyScore(dateStr){
+    var applicable = habits.filter(function(h){ return h.active && h.createdDate <= dateStr; });
+    var total = applicable.length;
+    if (total === 0) return { completed:0, total:0, percent:null };
+    var completed = applicable.filter(function(h){ return getRecordStatus(h.id, dateStr) === 'completed'; }).length;
+    return { completed:completed, total:total, percent:Math.round(completed/total*100) };
+  }
+
+  // ---------- streak helpers (generic) ----------
+  function currentStreakFor(isGoodFn, sinceDate){
+    var streak = 0;
+    var cursor = new Date();
+    var ds = getLocalDateString(cursor);
+    if (!isGoodFn(ds)) cursor.setDate(cursor.getDate()-1);
+    while (true){
+      ds = getLocalDateString(cursor);
+      if (sinceDate && ds < sinceDate) break;
+      if (isGoodFn(ds)){ streak++; cursor.setDate(cursor.getDate()-1); }
+      else break;
+    }
+    return streak;
+  }
+  function bestStreakFor(isGoodFn, sinceDate){
+    if (!sinceDate) return 0;
+    var cursor = dateFromISO(sinceDate);
+    var end = new Date();
+    var run = 0, best = 0;
+    while (cursor <= end){
+      var ds = getLocalDateString(cursor);
+      if (isGoodFn(ds)){ run++; if (run > best) best = run; }
+      else { run = 0; }
+      cursor.setDate(cursor.getDate()+1);
+    }
+    return best;
+  }
+  function isStreakDay(ds){
+    var rec = records[ds];
+    if (!rec) return false;
+    return Object.keys(rec).some(function(hid){ return rec[hid] === 'completed'; });
+  }
+  function computeOverallCurrentStreak(){ return currentStreakFor(isStreakDay, earliestHabitDate()); }
+  function computeOverallBestStreak(){ return bestStreakFor(isStreakDay, earliestHabitDate()); }
+
+  // ---------- per-habit stats ----------
+  function computeHabitStats(h){
+    var since = h.createdDate, end = new Date();
+    var cursor = dateFromISO(since);
+    var totalDays = 0, completedDays = 0;
+    while (cursor <= end){
+      totalDays++;
+      if (getRecordStatus(h.id, getLocalDateString(cursor)) === 'completed') completedDays++;
+      cursor.setDate(cursor.getDate()+1);
+    }
+    var percent = totalDays > 0 ? Math.round(completedDays/totalDays*100) : 0;
+    var isGood = function(ds){ return getRecordStatus(h.id, ds) === 'completed'; };
+    return {
+      totalDays: totalDays, completedDays: completedDays, percent: percent,
+      current: currentStreakFor(isGood, since), best: bestStreakFor(isGood, since)
+    };
+  }
+
+  // ---------- range rates ----------
+  function rateOverLastNDays(n, offset){
+    var vals = [];
+    var today = new Date();
+    for (var i = offset + n - 1; i >= offset; i--){
+      var d = new Date(today); d.setDate(d.getDate()-i);
+      var s = computeDailyScore(getLocalDateString(d));
+      if (s.total > 0) vals.push(s.percent);
+    }
+    if (!vals.length) return null;
+    return Math.round(vals.reduce(function(a,b){ return a+b; },0) / vals.length);
+  }
+  function last7Rate(){ return rateOverLastNDays(7,0); }
+  function previous7Rate(){ return rateOverLastNDays(7,7); }
+  function overallRate(){
+    var since = earliestHabitDate();
+    if (!since) return null;
+    var cursor = dateFromISO(since), end = new Date();
+    var totalC = 0, totalA = 0;
+    while (cursor <= end){
+      var s = computeDailyScore(getLocalDateString(cursor));
+      totalC += s.completed; totalA += s.total;
+      cursor.setDate(cursor.getDate()+1);
+    }
+    return totalA > 0 ? Math.round(totalC/totalA*100) : null;
+  }
+
+  // ---------- scores ----------
+  function computeDisciplineScore(){
+    var l7 = last7Rate();
+    if (l7 === null) return null;
+    var overall = overallRate();
+    var streakFactor = Math.min(computeOverallCurrentStreak()/30, 1) * 100;
+    var ov = overall === null ? l7 : overall;
+    return Math.round(0.5*l7 + 0.25*streakFactor + 0.25*ov);
+  }
+  function computeConsistencyScore(){
+    var since = earliestHabitDate();
+    if (!since) return null;
+    var cursor = dateFromISO(since), end = new Date();
+    var totalDays = 0, streakDays = 0;
+    while (cursor <= end){
+      totalDays++;
+      if (isStreakDay(getLocalDateString(cursor))) streakDays++;
+      cursor.setDate(cursor.getDate()+1);
+    }
+    var streakRate = totalDays > 0 ? streakDays/totalDays*100 : 0;
+    var ov = overallRate();
+    return ov === null ? Math.round(streakRate) : Math.round(0.6*streakRate + 0.4*ov);
+  }
+  function computeGrowthScore(){
+    var l7 = last7Rate();
+    if (l7 === null) return null;
+    var p7 = previous7Rate();
+    if (p7 === null) return l7;
+    return clamp(Math.round(50 + (l7-p7)/2), 0, 100);
+  }
+  function computeTrend(){
+    var l7 = last7Rate(), p7 = previous7Rate();
+    if (l7 === null || p7 === null) return null;
+    var diff = l7 - p7;
+    var label = diff > 5 ? 'Improving' : diff < -5 ? 'Declining' : 'Stable';
+    return { label: label, diff: diff };
+  }
+
+  // ---------- achievements & records ----------
+  function computeAchievements(){
+    var since = earliestHabitDate();
+    var best80 = false, best100 = false, daysTracked = 0;
+    var bestStreakAll = computeOverallBestStreak();
+    if (since){
+      var cursor = dateFromISO(since), end = new Date();
+      while (cursor <= end){
+        var s = computeDailyScore(getLocalDateString(cursor));
+        if (s.total > 0){
+          if (s.percent >= 80) best80 = true;
+          if (s.percent >= 100) best100 = true;
+        }
+        daysTracked++;
+        cursor.setDate(cursor.getDate()+1);
+      }
+    }
+    return [
+      { icon:'\u2b50', label:'First Day', unlocked: bestStreakAll >= 1 },
+      { icon:'\ud83d\udd25', label:'3 Day Streak', unlocked: bestStreakAll >= 3 },
+      { icon:'\ud83d\udd25', label:'7 Day Streak', unlocked: bestStreakAll >= 7 },
+      { icon:'\ud83d\udd25', label:'14 Day Streak', unlocked: bestStreakAll >= 14 },
+      { icon:'\ud83c\udfc6', label:'30 Day Streak', unlocked: bestStreakAll >= 30 },
+      { icon:'\ud83d\udcaa', label:'80% Day', unlocked: best80 },
+      { icon:'\ud83d\udcaf', label:'100% Day', unlocked: best100 },
+      { icon:'\ud83d\udcc5', label:'7 Days Tracked', unlocked: daysTracked >= 7 },
+      { icon:'\ud83d\uddd3\ufe0f', label:'30 Days Tracked', unlocked: daysTracked >= 30 }
+    ];
+  }
+  function computePersonalRecords(){
+    var totalCompleted = 0;
+    Object.keys(records).forEach(function(ds){
+      Object.keys(records[ds]).forEach(function(hid){ if (records[ds][hid] === 'completed') totalCompleted++; });
+    });
+    var since = earliestHabitDate();
+    var bestDay = 0, daysTracked = 0;
+    if (since){
+      var cursor = dateFromISO(since), end = new Date();
+      while (cursor <= end){
+        var s = computeDailyScore(getLocalDateString(cursor));
+        if (s.total > 0 && s.percent > bestDay) bestDay = s.percent;
+        daysTracked++;
+        cursor.setDate(cursor.getDate()+1);
+      }
+    }
+    var mostConsistent = null, mostConsistentPct = -1;
+    habits.filter(function(h){ return h.active; }).forEach(function(h){
+      var stats = computeHabitStats(h);
+      if (stats.totalDays >= 3 && stats.percent > mostConsistentPct){ mostConsistentPct = stats.percent; mostConsistent = h; }
+    });
+    return {
+      bestDay: bestDay, bestStreak: computeOverallBestStreak(),
+      mostConsistentName: mostConsistent ? mostConsistent.name : null, mostConsistentPct: mostConsistent ? mostConsistentPct : null,
+      totalCompleted: totalCompleted, daysTracked: daysTracked
+    };
+  }
+
+  // ---------- DOM refs ----------
+  var dateEyebrow = document.getElementById('dateEyebrow');
+  var scoreHero = document.getElementById('scoreHero');
+  var habitListEl = document.getElementById('habitList');
+  var emptyStateEl = document.getElementById('emptyState');
+  var noActiveStateEl = document.getElementById('noActiveState');
+  var todayScreen = document.getElementById('todayScreen');
+  var dashboardScreen = document.getElementById('dashboardScreen');
+  var habitsScreen = document.getElementById('habitsScreen');
+  var dashEmpty = document.getElementById('dashEmpty');
+  var dashContent = document.getElementById('dashContent');
+  var manageList = document.getElementById('manageList');
+  var manageCount = document.getElementById('manageCount');
+  var fabAddBtn = document.getElementById('fabAddBtn');
+  var sheetOverlay = document.getElementById('sheetOverlay');
+  var sheetTitle = document.getElementById('sheetTitle');
+  var sheetError = document.getElementById('sheetError');
+  var habitNameInput = document.getElementById('habitNameInput');
+  var habitIconInput = document.getElementById('habitIconInput');
+  var habitDescInput = document.getElementById('habitDescInput');
+  var editOnlyRow = document.getElementById('editOnlyRow');
+  var toggleActiveBtn = document.getElementById('toggleActiveBtn');
+
+  var sheetMode = 'add';
+  var currentEditId = null;
+  var currentScreen = 'today';
+
+  // ---------- Today rendering ----------
+  function renderScoreHeroInto(el, dateStr, subLabel){
+    var s = computeDailyScore(dateStr);
+    var r = 42, circumference = 2*Math.PI*r;
+    var pct = s.percent == null ? 0 : s.percent;
+    var offset = circumference * (1 - pct/100);
+    el.innerHTML =
+      '<div class="score-ring-wrap">' +
+        '<svg viewBox="0 0 100 100" class="score-ring">' +
+          '<circle cx="50" cy="50" r="' + r + '" class="score-ring-track"></circle>' +
+          '<circle cx="50" cy="50" r="' + r + '" class="score-ring-fill" style="stroke-dasharray:' + circumference + ';stroke-dashoffset:' + offset + '"></circle>' +
+        '</svg>' +
+        '<div class="score-ring-label">' +
+          '<div class="score-pct">' + (s.total === 0 ? '\u2013' : pct + '%') + '</div>' +
+          '<div class="score-sub">' + (s.total === 0 ? 'no habits' : subLabel) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="score-body">' +
+        (s.total === 0
+          ? '<p class="score-completed">Add your first habit to begin.</p>'
+          : '<p class="score-completed">Completed <strong>' + s.completed + ' / ' + s.total + '</strong></p>' +
+            '<p class="score-formula">= completed \u00F7 active habits, \u00D7 100</p>') +
+      '</div>';
+  }
+
+  function renderThread(habitId, createdDate){
+    var out = '';
+    var today = new Date();
+    for (var i = 6; i >= 0; i--){
+      var d = new Date(today); d.setDate(d.getDate()-i);
+      var ds = getLocalDateString(d);
+      var cls = 'thread-dot';
+      if (createdDate && ds < createdDate){
+        cls += ' thread-dot--void';
+      } else {
+        var status = getRecordStatus(habitId, ds);
+        cls += status === 'completed' ? ' thread-dot--done' : status === 'missed' ? ' thread-dot--missed' : ' thread-dot--empty';
+      }
+      out += '<span class="' + cls + '"></span>';
+    }
+    return out;
+  }
+
+  function renderHabitList(){
+    if (habits.length === 0){
+      emptyStateEl.hidden = false; noActiveStateEl.hidden = true;
+      habitListEl.hidden = true; habitListEl.innerHTML = '';
+      return;
+    }
+    emptyStateEl.hidden = true;
+    var active = habits.filter(function(h){ return h.active; }).sort(function(a,b){ return a.order - b.order; });
+    if (active.length === 0){
+      noActiveStateEl.hidden = false;
+      habitListEl.hidden = true; habitListEl.innerHTML = '';
+      return;
+    }
+    noActiveStateEl.hidden = true;
+    habitListEl.hidden = false;
+    var today = todayStr();
+    habitListEl.innerHTML = active.map(function(h){
+      var status = getRecordStatus(h.id, today);
+      return (
+        '<div class="habit-card" data-id="' + h.id + '">' +
+          '<div class="habit-card-main">' +
+            '<div class="habit-icon">' + (escapeHtml(h.icon) || '\u2022') + '</div>' +
+            '<div class="habit-info">' +
+              '<p class="habit-name">' + escapeHtml(h.name) + '</p>' +
+              (h.description ? '<p class="habit-desc">' + escapeHtml(h.description) + '</p>' : '') +
+              '<div class="habit-thread">' + renderThread(h.id, h.createdDate) + '</div>' +
+            '</div>' +
+            '<button class="habit-more" data-action="edit" aria-label="Edit ' + escapeHtml(h.name) + '">\u22EF</button>' +
+          '</div>' +
+          '<div class="habit-actions">' +
+            '<button class="btn-done' + (status==='completed'?' is-active':'') + '" data-action="done" aria-pressed="' + (status==='completed') + '">\u2705 Done</button>' +
+            '<button class="btn-notdone' + (status==='missed'?' is-active':'') + '" data-action="notdone" aria-pressed="' + (status==='missed') + '">\u274C Not done</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  function renderToday(){
+    dateEyebrow.textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+    renderScoreHeroInto(scoreHero, todayStr(), 'today');
+    renderHabitList();
+  }
+
+  // ---------- Habits screen rendering ----------
+  function renderManageList(){
+    manageCount.textContent = activeCount() + ' of ' + MAX_ACTIVE + ' active';
+    var sorted = habits.slice().sort(function(a,b){
+      if (a.active !== b.active) return a.active ? -1 : 1;
+      return a.order - b.order;
+    });
+    if (sorted.length === 0){
+      manageList.innerHTML = '<p style="color:var(--text-dim);font-size:14px;">No habits yet. Tap + to add one.</p>';
+      return;
+    }
+    manageList.innerHTML = sorted.map(function(h){
+      return (
+        '<div class="manage-row">' +
+          '<div class="manage-row-main">' +
+            '<span class="manage-icon">' + (escapeHtml(h.icon) || '\u2022') + '</span>' +
+            '<span class="manage-name">' + escapeHtml(h.name) + '</span>' +
+          '</div>' +
+          '<div class="manage-row-actions">' +
+            '<button class="pill ' + (h.active ? 'pill--active' : 'pill--inactive') + '" data-toggle="' + h.id + '">' + (h.active ? 'Active' : 'Disabled') + '</button>' +
+            '<button class="link-btn" data-edit="' + h.id + '">Edit</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  // ---------- Dashboard rendering ----------
+  function renderWeekChart(){
+    var out = '';
+    var today = new Date();
+    for (var i = 6; i >= 0; i--){
+      var d = new Date(today); d.setDate(d.getDate()-i);
+      var ds = getLocalDateString(d);
+      var s = computeDailyScore(ds);
+      var pct = s.total === 0 ? 0 : s.percent;
+      var label = d.toLocaleDateString(undefined, { weekday:'narrow' });
+      out += '<div class="week-bar-col">' +
+        '<div class="week-bar-track"><div class="week-bar-fill" style="height:' + pct + '%"></div></div>' +
+        '<div class="week-bar-label">' + label + '</div>' +
+        '<div class="week-bar-pct">' + (s.total === 0 ? '\u2013' : pct + '%') + '</div>' +
+      '</div>';
+    }
+    return out;
+  }
+
+  function renderCalGrid(){
+    var now = new Date();
+    var year = now.getFullYear(), month = now.getMonth();
+    var firstDay = new Date(year, month, 1);
+    var daysInMonth = new Date(year, month+1, 0).getDate();
+    var startWeekday = firstDay.getDay();
+    var out = '';
+    for (var b = 0; b < startWeekday; b++) out += '<div class="cal-cell cal-cell--blank"></div>';
+    var todayVal = todayStr();
+    for (var day = 1; day <= daysInMonth; day++){
+      var ds = getLocalDateString(new Date(year, month, day));
+      var cls = 'cal-cell';
+      if (ds > todayVal){
+        cls += ' cal-cell--future';
+      } else {
+        var s = computeDailyScore(ds);
+        if (s.total === 0) cls += ' cal-cell--void';
+        else {
+          var p = s.percent;
+          cls += p === 0 ? ' cal-cell--l0' : p < 40 ? ' cal-cell--l1' : p < 70 ? ' cal-cell--l2' : p < 100 ? ' cal-cell--l3' : ' cal-cell--l4';
+        }
+      }
+      if (ds === todayVal) cls += ' cal-cell--today';
+      out += '<div class="' + cls + '">' + day + '</div>';
+    }
+    return out;
+  }
+
+  function renderDashboard(){
+    if (habits.length === 0){
+      dashEmpty.hidden = false; dashContent.hidden = true;
+      return;
+    }
+    dashEmpty.hidden = true; dashContent.hidden = false;
+
+    renderScoreHeroInto(document.getElementById('dashTodayScore'), todayStr(), 'today');
+
+    var curStreak = computeOverallCurrentStreak(), bestStreak = computeOverallBestStreak();
+    document.getElementById('streakRow').innerHTML =
+      '<div class="stat-card"><div class="stat-value">' + curStreak + '</div><div class="stat-label">Current streak (days)</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + bestStreak + '</div><div class="stat-label">Best streak (days)</div></div>';
+
+    var activeHabits = habits.filter(function(h){ return h.active; });
+    document.getElementById('habitConsistencyList').innerHTML = activeHabits.length === 0
+      ? '<p class="muted-note">No active habits right now.</p>'
+      : activeHabits.map(function(h){
+          var st = computeHabitStats(h);
+          return '<div class="habit-stat-card">' +
+            '<p class="habit-stat-name">' + (escapeHtml(h.icon) || '\u2022') + ' ' + escapeHtml(h.name) + '</p>' +
+            '<div class="habit-stat-grid">' +
+              '<div class="habit-stat-item"><div class="v">' + st.percent + '%</div><div class="l">Consistency (' + st.completedDays + '/' + st.totalDays + ' days)</div></div>' +
+              '<div class="habit-stat-item"><div class="v">' + st.current + ' days</div><div class="l">Current streak</div></div>' +
+              '<div class="habit-stat-item"><div class="v">' + st.best + ' days</div><div class="l">Best streak</div></div>' +
+              '<div class="habit-stat-item"><div class="v">' + st.totalDays + '</div><div class="l">Days tracked</div></div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+    document.getElementById('weekChart').innerHTML = renderWeekChart();
+    document.getElementById('calGrid').innerHTML = renderCalGrid();
+
+    var disc = computeDisciplineScore(), cons = computeConsistencyScore(), grow = computeGrowthScore();
+    function scoreCard(label, val, explain){
+      return '<div class="score-card"><div class="v">' + (val===null?'\u2013':val) + '</div><div class="l">' + label + '</div>' +
+        '<details><summary>How this works</summary><p>' + explain + '</p></details></div>';
+    }
+    document.getElementById('scoreTrio').innerHTML =
+      scoreCard('Discipline', disc, '50% your last 7 days\u2019 completion + 25% current streak (capped at 30 days) + 25% all-time completion. An app-generated progress metric, not a scientific measurement.') +
+      scoreCard('Consistency', cons, '60% of days you completed at least one habit + 40% your all-time completion rate. Measures how regularly you show up, not how hard the habits are.') +
+      scoreCard('Growth', grow, 'Starts at 50 (neutral) and moves with how your last 7 days compare to the 7 days before that. An estimate of momentum, not a measure of real potential.');
+
+    var trend = computeTrend();
+    var trendCard = document.getElementById('trendCard');
+    if (trend === null){
+      trendCard.innerHTML = '<div><p class="trend-label">Not enough data yet</p><p class="trend-note">Check back after two full weeks of tracking to see your trend.</p></div>';
+    } else {
+      trendCard.innerHTML = '<div><p class="trend-label">' + trend.label + '</p><p class="trend-note">Last 7 days vs. the 7 before that</p></div>' +
+        '<div class="trend-diff">' + (trend.diff >= 0 ? '+' : '') + trend.diff + '%</div>';
+    }
+
+    document.getElementById('achvGrid').innerHTML = computeAchievements().map(function(a){
+      return '<div class="achv-badge' + (a.unlocked ? ' unlocked' : '') + '"><div class="achv-icon">' + a.icon + '</div><div class="achv-label">' + a.label + '</div></div>';
+    }).join('');
+
+    var rec = computePersonalRecords();
+    document.getElementById('recordsList').innerHTML =
+      '<div class="record-row"><span>Best daily score</span><span class="v">' + rec.bestDay + '%</span></div>' +
+      '<div class="record-row"><span>Best streak</span><span class="v">' + rec.bestStreak + ' days</span></div>' +
+      '<div class="record-row"><span>Most consistent habit</span><span class="v">' + (rec.mostConsistentName ? escapeHtml(rec.mostConsistentName) + ' (' + rec.mostConsistentPct + '%)' : '\u2013') + '</span></div>' +
+      '<div class="record-row"><span>Total habits completed</span><span class="v">' + rec.totalCompleted + '</span></div>' +
+      '<div class="record-row"><span>Total days tracked</span><span class="v">' + rec.daysTracked + '</span></div>';
+  }
+
+  // ---------- screens ----------
+  function showScreen(name){
+    currentScreen = name;
+    todayScreen.hidden = name !== 'today';
+    dashboardScreen.hidden = name !== 'dashboard';
+    habitsScreen.hidden = name !== 'habits';
+    fabAddBtn.hidden = name === 'dashboard';
+    document.querySelectorAll('.nav-btn').forEach(function(btn){
+      btn.classList.toggle('is-active', btn.dataset.screen === name);
+    });
+    if (name === 'today') renderToday();
+    else if (name === 'dashboard') renderDashboard();
+    else if (name === 'habits') renderManageList();
+  }
+
+  // ---------- sheet ----------
+  function showSheetError(msg){ sheetError.textContent = msg; sheetError.hidden = false; }
+  function clearSheetError(){ sheetError.hidden = true; sheetError.textContent = ''; }
+
+  function openAddSheet(prefillName){
+    sheetMode = 'add'; currentEditId = null;
+    sheetTitle.textContent = 'Add habit';
+    habitNameInput.value = prefillName || '';
+    habitIconInput.value = '';
+    habitDescInput.value = '';
+    editOnlyRow.hidden = true;
+    clearSheetError();
+    sheetOverlay.hidden = false;
+  }
+  function openEditSheet(habitId){
+    var h = habits.find(function(x){ return x.id === habitId; });
+    if (!h) return;
+    sheetMode = 'edit'; currentEditId = habitId;
+    sheetTitle.textContent = 'Edit habit';
+    habitNameInput.value = h.name;
+    habitIconInput.value = h.icon || '';
+    habitDescInput.value = h.description || '';
+    editOnlyRow.hidden = false;
+    toggleActiveBtn.textContent = h.active ? 'Disable' : 'Enable';
+    clearSheetError();
+    sheetOverlay.hidden = false;
+  }
+  function closeSheet(){ sheetOverlay.hidden = true; }
+
+  function handleSaveHabit(){
+    var name = habitNameInput.value.trim();
+    if (!name){ showSheetError('Please enter a habit name.'); return; }
+    var iconRaw = habitIconInput.value.trim();
+    var icon = Array.from(iconRaw).slice(0,2).join('');
+    var description = habitDescInput.value.trim().slice(0,120);
+
+    if (sheetMode === 'add'){
+      if (activeCount() >= MAX_ACTIVE){
+        showSheetError('You already have ' + MAX_ACTIVE + ' active habits. Disable or delete one before adding another.');
+        return;
+      }
+      habits.push({ id:makeId(), name:name, icon:icon, description:description, createdDate:todayStr(), active:true, order:habits.length });
+    } else {
+      var h = habits.find(function(x){ return x.id === currentEditId; });
+      if (h){ h.name = name; h.icon = icon; h.description = description; }
+    }
+    saveHabits(habits);
+    closeSheet();
+    showScreen(currentScreen);
+  }
+
+  function handleToggleActive(){
+    var h = habits.find(function(x){ return x.id === currentEditId; });
+    if (!h) return;
+    if (!h.active && activeCount() >= MAX_ACTIVE){
+      showSheetError('You already have ' + MAX_ACTIVE + ' active habits. Disable another one before re-enabling this.');
+      return;
+    }
+    h.active = !h.active;
+    saveHabits(habits);
+    closeSheet();
+    showScreen(currentScreen);
+  }
+
+  function handleDeleteHabit(){
+    var h = habits.find(function(x){ return x.id === currentEditId; });
+    if (!h) return;
+    var ok = confirm('Delete "' + h.name + '"? It will be removed from your habit list, though its past records stay in storage. Consider Disable instead if you might want it back.');
+    if (!ok) return;
+    habits = habits.filter(function(x){ return x.id !== currentEditId; });
+    saveHabits(habits);
+    closeSheet();
+    showScreen(currentScreen);
+  }
+
+  // ---------- events ----------
+  document.querySelectorAll('.nav-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ showScreen(btn.dataset.screen); });
+  });
+  fabAddBtn.addEventListener('click', function(){ openAddSheet(); });
+  document.getElementById('emptyAddBtn').addEventListener('click', function(){ openAddSheet(); });
+  document.getElementById('cancelSheetBtn').addEventListener('click', closeSheet);
+  document.getElementById('saveHabitBtn').addEventListener('click', handleSaveHabit);
+  toggleActiveBtn.addEventListener('click', handleToggleActive);
+  document.getElementById('deleteHabitBtn').addEventListener('click', handleDeleteHabit);
+  habitNameInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') handleSaveHabit(); });
+  sheetOverlay.addEventListener('click', function(e){ if (e.target === sheetOverlay) closeSheet(); });
+
+  document.querySelectorAll('.chip').forEach(function(chip){
+    chip.addEventListener('click', function(){ openAddSheet(chip.dataset.suggest); });
+  });
+
+  habitListEl.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    var card = btn.closest('.habit-card');
+    var id = card.dataset.id;
+    var action = btn.dataset.action;
+    if (action === 'edit'){ openEditSheet(id); return; }
+    var newStatus = action === 'done' ? 'completed' : 'missed';
+    var current = getRecordStatus(id, todayStr());
+    setRecordStatus(id, todayStr(), current === newStatus ? 'unanswered' : newStatus);
+    renderToday();
+  });
+
+  manageList.addEventListener('click', function(e){
+    var toggleBtn = e.target.closest('[data-toggle]');
+    var editBtn = e.target.closest('[data-edit]');
+    if (toggleBtn){
+      var id = toggleBtn.dataset.toggle;
+      var h = habits.find(function(x){ return x.id === id; });
+      if (!h) return;
+      if (!h.active && activeCount() >= MAX_ACTIVE){
+        alert('You already have ' + MAX_ACTIVE + ' active habits. Disable another one first.');
+        return;
+      }
+      h.active = !h.active;
+      saveHabits(habits);
+      renderManageList();
+    } else if (editBtn){
+      openEditSheet(editBtn.dataset.edit);
+    }
+  });
+
+  // ---------- init ----------
+  showScreen('today');
+})();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('service-worker.js').catch(function (err) {
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
